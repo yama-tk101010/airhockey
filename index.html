@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Real Neon Air Hockey</title>
+    <title>Neon Air Hockey V5 (Stable)</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; }
 
         body { 
             margin: 0; padding: 0;
-            background-color: #050505; 
+            background-color: #080808; 
             overflow: hidden; 
             height: 100vh; height: 100dvh; 
             padding-top: env(safe-area-inset-top);
@@ -29,9 +29,9 @@
             flex-shrink: 0;
             position: relative;
             background: #151515; 
-            border: 12px solid #333;
+            border: 15px solid #2a2a2a;
             border-radius: 30px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.9);
+            box-shadow: 0 0 50px rgba(0,0,0,0.8) inset;
             visibility: hidden; 
             transform-origin: center center;
             overflow: hidden;
@@ -39,66 +39,85 @@
 
         canvas { display: block; width: 100%; height: 100%; }
 
-        /* UI Overlays */
+        /* UIレイヤー */
         #menu, #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(5px);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 100;
             transition: opacity 0.3s;
+            pointer-events: none; /* デフォルトでクリック透過 */
+        }
+
+        #menu {
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            pointer-events: auto; /* メニューは操作可能に */
         }
         
         #overlay {
-            background: rgba(0,0,0,0.3);
-            pointer-events: none;
+            background: rgba(0,0,0,0.2);
             opacity: 0;
         }
         #overlay.active { opacity: 1; }
 
         h1 {
-            font-size: 42px; margin: 0 0 10px 0;
+            font-size: 48px; margin: 0 0 10px 0;
             background: linear-gradient(to right, #00d2ff, #ff4757);
             -webkit-background-clip: text; color: transparent;
-            font-weight: 900; font-style: italic; letter-spacing: -1px;
+            font-weight: 900; font-style: italic; letter-spacing: -2px;
             text-transform: uppercase;
         }
 
+        /* アニメーション付きテキスト */
         .overlay-text {
             font-size: 80px; font-weight: 900; color: #fff;
-            text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 50px #00d2ff;
-            transform: scale(0.5); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-shadow: 0 0 20px rgba(255,255,255,0.8), 0 0 50px currentColor;
+            transform: scale(0.5); 
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            -webkit-text-stroke: 2px rgba(0,0,0,0.5);
         }
-        #overlay.active .overlay-text { transform: scale(1); }
+        /* ポップアップアニメーション */
+        @keyframes pulse-text {
+            0% { transform: scale(0.9); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1.0); }
+        }
+        #overlay.active .overlay-text.pulse {
+            animation: pulse-text 1s infinite ease-in-out;
+        }
         
         input { 
-            font-size: 20px; padding: 15px; margin: 20px 0; text-align: center; width: 70%; 
-            border-radius: 12px; border: 2px solid #444; background: #222; color: white; outline: none;
+            font-size: 24px; padding: 15px; margin: 20px 0; text-align: center; width: 70%; 
+            border-radius: 12px; border: 2px solid #555; background: #222; color: white; outline: none;
+            font-weight: bold; letter-spacing: 2px;
         }
         input:focus { border-color: #00d2ff; }
 
         button { 
-            font-size: 18px; padding: 18px 0; margin: 10px 0; border-radius: 50px; border: none; 
-            cursor: pointer; font-weight: bold; width: 80%; color: white;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.6); transition: transform 0.1s;
+            font-size: 20px; padding: 18px 0; margin: 12px 0; border-radius: 50px; border: none; 
+            cursor: pointer; font-weight: 900; width: 80%; color: white;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.3); transition: transform 0.1s, box-shadow 0.1s;
             text-transform: uppercase;
+            letter-spacing: 1px;
         }
-        button:active { transform: scale(0.96); }
+        button:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
         #btn-host { background: linear-gradient(135deg, #00d2ff, #0077aa); }
         #btn-join { background: linear-gradient(135deg, #ff4757, #cc2233); }
-        .hidden { opacity: 0; pointer-events: none; }
+        button:disabled { background: #555; cursor: not-allowed; transform: none; box-shadow: none; }
+        .hidden { opacity: 0; pointer-events: none !important; }
 
         #score-board {
-            position: absolute; top: 50%; left: 0; width: 100%; transform: translateY(-50%) rotate(-90deg);
-            display: flex; justify-content: center; gap: 60px; pointer-events: none; z-index: 5;
-            opacity: 0.4;
+            position: absolute; top: 50%; right: -20px; 
+            transform: translateY(-50%) rotate(-90deg);
+            display: flex; gap: 80px; pointer-events: none; z-index: 5;
+            opacity: 0.5;
         }
         .score { 
-            font-family: 'Impact', sans-serif; font-size: 140px; 
-            color: #fff; text-shadow: 0 0 20px rgba(0,0,0,0.5);
+            font-family: 'Impact', sans-serif; font-size: 100px; 
+            color: #fff; text-shadow: 0 0 20px rgba(0,0,0,0.5); width: 120px; text-align: center;
         }
         
-        #msg { margin-top:20px; color: #ffeb3b; font-weight:bold; text-align:center; font-size:15px; white-space: pre-wrap; line-height: 1.6; }
+        #msg { margin-top:20px; color: #ffeb3b; font-weight:bold; text-align:center; font-size:16px; white-space: pre-wrap; line-height: 1.6; }
         #debug { position: absolute; top: 10px; left: 10px; font-size: 10px; color: #666; pointer-events: none; z-index: 20; font-family: monospace;}
     </style>
 </head>
@@ -107,22 +126,21 @@
 <div id="game-container">
     <div id="menu">
         <h1>NEON HOCKEY</h1>
-        <p style="color:#aaa; margin-top:0; font-size:14px; letter-spacing: 2px;">REALISTIC EDITION</p>
-        <input type="text" id="room-id" placeholder="ROOM CODE (例: 777)" autocomplete="off">
+        <p style="color:#aaa; margin-top:0; font-size:14px; letter-spacing: 3px;">MOBILE V5</p>
+        <input type="text" id="room-id" placeholder="ROOM CODE (例: 777)" autocomplete="off" maxlength="8">
         <button id="btn-host" onclick="startHost()">HOST GAME</button>
         <button id="btn-join" onclick="startGuest()">JOIN GAME</button>
-        <div id="msg">First to 10 points wins!</div>
+        <div id="msg">10点先取マッチ</div>
     </div>
 
     <div id="overlay">
         <div id="overlay-msg" class="overlay-text">GOAL!</div>
-        <p id="sub-msg" style="color:white; margin-top:20px; font-size:20px; display:none;">Tap to Restart</p>
+        <p id="sub-msg" style="color:white; margin-top:20px; font-size:24px; font-weight:bold; display:none; text-shadow:0 0 10px black;">Tap to Restart</p>
     </div>
 
     <div id="score-board">
-        <span id="s2" class="score">0</span>
-        <span style="font-size:40px; align-self:center; color:#555;">-</span>
-        <span id="s1" class="score">0</span>
+        <span id="s2" class="score" style="color:#ff4757">0</span>
+        <span id="s1" class="score" style="color:#00d2ff">0</span>
     </div>
 
     <div id="debug">Ready</div>
@@ -133,19 +151,19 @@
     // --- 設定 ---
     const GAME_W = 540;
     const GAME_H = 960;
-    const WIN_SCORE = 10; // 10点先取
+    const WIN_SCORE = 10;
     
-    const PADDLE_R = 50;  // マレットの半径
-    const PUCK_R = 32;    // パックの半径
-    const FRICTION = 0.99;
+    const PADDLE_R = 50; 
+    const PUCK_R = 30;   
+    const FRICTION = 0.985; // 少し滑りやすく
 
     let currentScale = 1;
     let peer, conn;
     let myRole = null; 
     let isConnected = false;
-    let isPaused = false; // ゴール演出中のポーズフラグ
-    let isGameOver = false;
-    const APP_PREFIX = 'y_ah_real_v1_'; 
+    let isPaused = false;   // ゴール後の演出用
+    let isGameOver = false; // ゲーム終了フラグ
+    const APP_PREFIX = 'y_ah_v5_'; 
 
     const msgEl = document.getElementById('msg');
     const debugEl = document.getElementById('debug');
@@ -163,33 +181,26 @@
         if (e.target.value !== sanitized) e.target.value = sanitized;
     });
 
-    // リアルなテーブル模様の生成（ドット穴）
+    // ドット穴パターン生成
     let tablePattern = null;
-    canvas.width = GAME_W;
-    canvas.height = GAME_H;
-
+    canvas.width = GAME_W; canvas.height = GAME_H;
     function createTablePattern() {
         const pCanvas = document.createElement('canvas');
         pCanvas.width = 40; pCanvas.height = 40;
         const pCtx = pCanvas.getContext('2d');
-        // 暗いグレー背景
-        pCtx.fillStyle = '#1e2024'; 
-        pCtx.fillRect(0, 0, 40, 40);
-        // 小さな穴
-        pCtx.fillStyle = '#15171a'; 
-        pCtx.beginPath(); pCtx.arc(20, 20, 2, 0, Math.PI*2); pCtx.fill();
+        pCtx.fillStyle = '#181818'; pCtx.fillRect(0, 0, 40, 40);
+        pCtx.fillStyle = '#111'; pCtx.beginPath(); pCtx.arc(20, 20, 2, 0, Math.PI*2); pCtx.fill();
         tablePattern = ctx.createPattern(pCanvas, 'repeat');
     }
     createTablePattern();
 
     // --- リサイズ処理 ---
     function resize() {
-        const bodyStyle = getComputedStyle(document.body);
         const availableW = window.innerWidth;
         const availableH = window.innerHeight;
         const scaleW = availableW / GAME_W;
         const scaleH = availableH / GAME_H;
-        currentScale = Math.min(scaleW, scaleH) * 0.95;
+        currentScale = Math.min(scaleW, scaleH) * 0.96; // 余裕を持たせる
         container.style.transform = `scale(${currentScale})`;
         container.style.visibility = 'visible';
     }
@@ -201,115 +212,137 @@
         const roomName = roomInput.value;
         if (!roomName) return alert("合言葉を入力してください");
         setupUI();
-        msgEl.innerText = "Creating Room...";
+        msgEl.innerText = "部屋を作成中...";
         peer = new Peer(APP_PREFIX + roomName);
         
         peer.on('open', (id) => {
             myRole = 'host';
-            msgEl.innerText = "WAITING FOR OPPONENT...";
+            msgEl.innerText = "対戦相手待ち...\n(相手に合言葉を伝えてください)";
         });
         peer.on('connection', (c) => {
             conn = c;
             conn.on('open', () => {
-                msgEl.innerText = "CONNECTED!";
-                setTimeout(startGame, 800);
+                msgEl.innerText = "接続成功！\nまもなく開始します";
+                setTimeout(startGame, 1000);
             });
             conn.on('data', handleData);
         });
-        peer.on('error', (err) => { alert("Room Error. Try another code."); location.reload(); });
+        peer.on('error', (err) => { 
+            alert("エラー: 既に使われている合言葉かもしれません"); 
+            location.reload(); 
+        });
     }
 
     function startGuest() {
         const roomName = roomInput.value;
         if (!roomName) return alert("合言葉を入力してください");
         setupUI();
-        msgEl.innerText = "Connecting...";
+        msgEl.innerText = "接続中...";
         peer = new Peer(null);
         
         peer.on('open', () => {
             myRole = 'guest';
             conn = peer.connect(APP_PREFIX + roomName);
             conn.on('open', () => {
-                msgEl.innerText = "CONNECTED!";
-                setTimeout(startGame, 800);
+                msgEl.innerText = "接続成功！";
+                setTimeout(startGame, 1000);
             });
             conn.on('data', handleData);
+            
+            setTimeout(() => {
+                if (!isConnected) {
+                    msgEl.innerText = "接続できませんでした。\n合言葉を確認してください。";
+                    document.getElementById('btn-join').disabled = false;
+                }
+            }, 5000);
         });
-        peer.on('error', (err) => { msgEl.innerText = "Connection Failed."; document.getElementById('btn-join').disabled = false;});
+        peer.on('error', (err) => { msgEl.innerText = "通信エラー"; });
     }
 
     function setupUI() {
         document.getElementById('btn-host').disabled = true;
         document.getElementById('btn-join').disabled = true;
+        document.getElementById('room-id').blur();
     }
 
     function startGame() {
         isConnected = true;
         document.getElementById('menu').classList.add('hidden');
         if (myRole === 'host') resetPuck();
-        loop();
+        
+        // ★重要: ループを開始（一度だけ呼ぶ）
+        requestAnimationFrame(loop);
     }
     
     function sendData(data) { if (conn && isConnected) conn.send(data); }
 
-    // --- ゲームロジック ---
-    // 色定義: [メイン, ライト, シャドウ, グロー]
-    let p1 = { x: GAME_W/2, y: GAME_H - 180, colorHex: '#00d2ff', type: 'p1' }; 
-    let p2 = { x: GAME_W/2, y: 180, colorHex: '#ff4757', type: 'p2' };          
+    // --- ゲーム状態 ---
+    let p1 = { x: GAME_W/2, y: GAME_H - 180 }; 
+    let p2 = { x: GAME_W/2, y: 180 };          
     let puck = { x: GAME_W/2, y: GAME_H/2, vx: 0, vy: 0 }; 
     let scores = { p1: 0, p2: 0 };
 
     function handleData(data) {
+        // ホスト -> ゲストへの同期
         if (data.type === 'syncHost' && myRole === 'guest') {
-            // ホストからの同期データ
-            p1.x = GAME_W - data.p1.x;
+            p1.x = GAME_W - data.p1.x; // 相手(Host)は上側
             p1.y = GAME_H - data.p1.y;
             puck.x = GAME_W - data.puck.x;
             puck.y = GAME_H - data.puck.y;
             scores = data.scores;
             updateScoreBoard();
         } 
+        // ゲスト -> ホストへの入力
         else if (data.type === 'syncGuest' && myRole === 'host') {
-            // ゲストからの入力データ
-            p2.x = GAME_W - data.p2.x;
+            p2.x = GAME_W - data.p2.x; // 相手(Guest)は上側
             p2.y = GAME_H - data.p2.y;
         }
+        // イベント制御
         else if (data.type === 'event') {
-            // イベント制御 (GOAL, WINなど)
             handleGameEvent(data);
         }
     }
 
     function handleGameEvent(evt) {
         if (evt.name === 'goal') {
-            showOverlay("GOAL!", evt.winner === 'p2' ? '#ff4757' : '#00d2ff'); // ゲスト視点では色が逆に見えるが、勝者の色を出す
+            // ゴール表示
+            showOverlay("GOAL!", true);
         } else if (evt.name === 'resume') {
+            // 再開
             hideOverlay();
         } else if (evt.name === 'gameover') {
+            // ゲーム終了
             isGameOver = true;
-            showOverlay(evt.winner === 'p1' ? "P1 WINS!" : "P2 WINS!", "#fff"); // 簡易表示
+            let msg = (evt.winner === 'p2') ? "YOU WIN!" : "YOU LOSE..."; // Guest視点: p2が自分
+            showOverlay(msg, false);
             subMsgEl.style.display = "block";
-            // ゲスト側のリセット操作を有効化
+            // タップでリロード
+            container.style.pointerEvents = "auto";
             container.addEventListener('click', () => location.reload(), {once:true});
         }
     }
 
-    function showOverlay(text, color) {
+    function showOverlay(text, pulse) {
         overlayMsgEl.innerText = text;
-        overlayMsgEl.style.textShadow = `0 0 50px ${color}`;
+        overlayMsgEl.style.textShadow = `0 0 50px white`;
         overlayEl.classList.add('active');
+        if (pulse) overlayMsgEl.classList.add('pulse');
+        else overlayMsgEl.classList.remove('pulse');
     }
     function hideOverlay() {
         overlayEl.classList.remove('active');
+        overlayMsgEl.classList.remove('pulse');
     }
 
+    // --- メインループ ---
     function update() {
         if (!isConnected) return;
         
-        // ホストのみが物理演算とゲーム進行を担当
+        // ■ ホスト側で物理演算 ■
         if (myRole === 'host') {
+            // ポーズ中やゲーム終了時は物理演算をスキップ
             if (!isPaused && !isGameOver) {
-                // 物理演算
+                // パック移動
                 puck.x += puck.vx; puck.y += puck.vy;
                 puck.vx *= FRICTION; puck.vy *= FRICTION;
                 
@@ -319,34 +352,26 @@
                 if (puck.y < PUCK_R) { puck.y = PUCK_R; puck.vy *= -1; }
                 if (puck.y > GAME_H - PUCK_R) { puck.y = GAME_H - PUCK_R; puck.vy *= -1; }
 
-                // ゴール判定
-                const goalW = GAME_W * 0.45;
+                // ゴール判定エリア
+                const goalW = GAME_W * 0.42;
                 const goalL = (GAME_W - goalW) / 2;
                 const goalR = (GAME_W + goalW) / 2;
 
-                if (puck.y <= PUCK_R + 5 && puck.x > goalL && puck.x < goalR) {
-                    onGoal('p1'); // 手前(Host)のゴールに入った -> p1の得点 (修正: エアーホッケーは相手ゴールに入れるゲームだが、ここではわかりやすく「入れた人」に加点するロジックにする必要がある。通常: 上壁に入ればP1得点、下壁に入ればP2得点)
-                    // 修正: P1(下)が打って上(P2側)に入ればP1得点。
-                    // 上の壁(y=0付近)
-                } else if (puck.y <= PUCK_R + 5 && (puck.x <= goalL || puck.x >= goalR)) {
-                     // 壁に当たっただけ
-                     puck.y = PUCK_R; puck.vy *= -1;
-                }
-
-                if (puck.y <= PUCK_R + 5 && puck.x > goalL && puck.x < goalR) {
-                    // P2側のゴール(上)にP1が入れた -> P1得点
+                // 上のゴール(P2側)にシュート -> P1得点
+                if (puck.y <= PUCK_R && puck.x > goalL && puck.x < goalR) {
                     scorePoint('p1');
                 }
-                if (puck.y >= GAME_H - PUCK_R - 5 && puck.x > goalL && puck.x < goalR) {
-                    // P1側のゴール(下)にP2が入れた -> P2得点
+                // 下のゴール(P1側)にシュート -> P2得点
+                if (puck.y >= GAME_H - PUCK_R && puck.x > goalL && puck.x < goalR) {
                     scorePoint('p2');
                 }
 
+                // マレットとの衝突
                 checkCollision(p1); 
                 checkCollision(p2);
             }
 
-            // データ送信
+            // データ送信 (止まっている間も位置情報を送り続けることで同期ズレを防ぐ)
             sendData({ 
                 type: 'syncHost', 
                 p1: { x: p1.x, y: p1.y }, 
@@ -354,42 +379,43 @@
                 scores: scores 
             });
         } 
+        // ■ ゲスト側 ■
         else if (myRole === 'guest') {
             sendData({ type: 'syncGuest', p2: { x: p2.x, y: p2.y } });
         }
     }
 
     function scorePoint(winner) {
-        if (isPaused) return; // 二重計上防止
+        if (isPaused || isGameOver) return; // 連打防止
         
         scores[winner]++;
-        isPaused = true;
+        isPaused = true; // ★物理演算を停止
         updateScoreBoard();
         
         // イベント送信: ゴール
         sendData({ type: 'event', name: 'goal', winner: winner });
-        showOverlay("GOAL!", winner === 'p1' ? '#00d2ff' : '#ff4757');
+        showOverlay("GOAL!", true);
 
         // 勝利判定
         if (scores[winner] >= WIN_SCORE) {
             isGameOver = true;
             setTimeout(() => {
-                let msg = (winner === 'p1') ? "YOU WIN!" : "YOU LOSE";
-                showOverlay(msg, "#fff");
+                let msg = (winner === 'p1') ? "YOU WIN!" : "YOU LOSE..."; // Host視点
+                showOverlay(msg, false);
                 subMsgEl.style.display = "block";
                 sendData({ type: 'event', name: 'gameover', winner: winner });
                 
-                // クリックでリロード
+                container.style.pointerEvents = "auto";
                 container.addEventListener('click', () => location.reload(), {once:true});
-            }, 1000);
+            }, 1500);
         } else {
-            // 次のラウンドへ
+            // 次のラウンドへ (2秒後に再開)
             setTimeout(() => {
                 resetPuck(winner);
-                isPaused = false;
+                isPaused = false; // ★物理演算再開
                 hideOverlay();
                 sendData({ type: 'event', name: 'resume' });
-            }, 2000); // 2秒待機
+            }, 2000); 
         }
     }
 
@@ -402,23 +428,20 @@
         if (dist < minDist) {
             let angle = Math.atan2(dy, dx);
             let push = minDist - dist;
-            
-            // 位置補正（めり込み防止）
             puck.x += Math.cos(angle) * push; 
             puck.y += Math.sin(angle) * push;
             
-            // 反射ベクトル
-            let force = 22; // 反発力を少し強く
-            // 速度を加算することで「打つ」感覚を出す
-            puck.vx = Math.cos(angle) * force + (puck.x - paddle.x)*0.1;
-            puck.vy = Math.sin(angle) * force + (puck.y - paddle.y)*0.1;
+            // ヒット処理
+            let force = 25; 
+            puck.vx = Math.cos(angle) * force + (puck.x - paddle.x) * 0.15;
+            puck.vy = Math.sin(angle) * force + (puck.y - paddle.y) * 0.15;
             
-            // 速度制限
-            const MAX_SPEED = 35;
-            let speed = Math.sqrt(puck.vx*puck.vx + puck.vy*puck.vy);
-            if (speed > MAX_SPEED) {
-                puck.vx = (puck.vx / speed) * MAX_SPEED;
-                puck.vy = (puck.vy / speed) * MAX_SPEED;
+            // 速度キャップ
+            const MAX = 40;
+            let spd = Math.sqrt(puck.vx**2 + puck.vy**2);
+            if(spd > MAX) {
+                puck.vx = (puck.vx/spd)*MAX;
+                puck.vy = (puck.vy/spd)*MAX;
             }
         }
     }
@@ -427,53 +450,37 @@
         puck.x = GAME_W/2; 
         puck.y = GAME_H/2; 
         puck.vx = 0;
-        // 点を取られた方に向かってサーブ
+        // 点を取られた側に向かってサーブ
         let dir = (winner === 'p1') ? 1 : -1; 
-        puck.vy = dir * 8;
+        puck.vy = dir * 7;
     }
 
     function updateScoreBoard() {
-        // ホスト視点: s1=自分(p1), s2=相手(p2)
-        // ゲスト視点: s1=相手(p1), s2=自分(p2)
-        // ※ここではシンプルに「左がP2(赤)、右がP1(青)」など固定配置にするか、
-        // 自分のスコアを常に手前にするか。今回は固定配置（上側P2、下側P1）のスコアを表示
-        let scoreP1 = scores.p1;
-        let scoreP2 = scores.p2;
-        
-        // 画面上の配置: 左側(S2)を敵、右側(S1)を自分とする、または上下に対応させる
-        // 今回のCSSは transform: rotate(-90deg) しているので、
-        // s2(左)が上(P2)、s1(右)が下(P1)に対応します。
-        document.getElementById('s1').innerText = scoreP1; // 下側（青）
-        document.getElementById('s2').innerText = scoreP2; // 上側（赤）
+        // ホスト(自分=P1)は下(右)、ゲスト(P2)は上(左)
+        // CSSで回転しているため、s1が右(下)、s2が左(上)
+        document.getElementById('s1').innerText = scores.p1;
+        document.getElementById('s2').innerText = scores.p2;
     }
 
     // --- 入力処理 ---
     function handleInput(e) {
         if (!isConnected || isGameOver) return;
         e.preventDefault();
-        const rect = container.getBoundingClientRect();
         
-        let clientX, clientY;
-        if(e.touches && e.touches.length > 0) {
-            clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
-        } else {
-            clientX = e.clientX; clientY = e.clientY;
-        }
+        const rect = container.getBoundingClientRect();
+        let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        let clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
         let tx = (clientX - rect.left) / currentScale;
         let ty = (clientY - rect.top) / currentScale;
 
-        // パドル位置制限
+        // 自分の陣地内のみ動けるように制限
         if (myRole === 'host') {
-            p1.x = tx; 
-            p1.y = Math.max(ty, GAME_H/2 + PADDLE_R);
-            p1.y = Math.min(p1.y, GAME_H - PADDLE_R);
-            p1.x = Math.max(PADDLE_R, Math.min(p1.x, GAME_W - PADDLE_R));
+            p1.x = Math.max(PADDLE_R, Math.min(tx, GAME_W - PADDLE_R));
+            p1.y = Math.max(GAME_H/2 + PADDLE_R, Math.min(ty, GAME_H - PADDLE_R));
         } else if (myRole === 'guest') {
-            p2.x = tx; 
-            p2.y = Math.max(ty, GAME_H/2 + PADDLE_R);
-            p2.y = Math.min(p2.y, GAME_H - PADDLE_R);
-            p2.x = Math.max(PADDLE_R, Math.min(p2.x, GAME_W - PADDLE_R));
+            p2.x = Math.max(PADDLE_R, Math.min(tx, GAME_W - PADDLE_R));
+            p2.y = Math.max(GAME_H/2 + PADDLE_R, Math.min(ty, GAME_H - PADDLE_R));
         }
     }
     
@@ -482,124 +489,104 @@
     canvas.addEventListener('touchmove', handleInput, {passive: false});
     canvas.addEventListener('touchstart', handleInput, {passive: false});
 
-    // --- リアルな描画 ---
+    // --- 描画ループ (常に回り続ける) ---
+    function loop() {
+        draw();
+        // ループを止まらせない！
+        requestAnimationFrame(loop);
+        
+        // 物理更新はここで呼ぶ
+        update(); 
+    }
+
     function draw() {
-        // テーブル
+        // 背景
         ctx.fillStyle = tablePattern; 
         ctx.fillRect(0,0,GAME_W,GAME_H);
         
-        // マーキング（発光するライン）
+        // コートデザイン
         ctx.lineWidth = 4;
         ctx.strokeStyle = '#333';
-        ctx.shadowBlur = 0;
         
-        // センターライン
+        // センターライン＆サークル
         ctx.beginPath(); ctx.moveTo(0,GAME_H/2); ctx.lineTo(GAME_W,GAME_H/2); ctx.stroke();
-        // センターサークル
         ctx.beginPath(); ctx.arc(GAME_W/2, GAME_H/2, 100, 0, Math.PI*2); ctx.stroke();
         
-        // ゴールエリア
-        const gw = GAME_W * 0.45;
-        // 上ゴールエリア
-        ctx.strokeRect((GAME_W-gw)/2, -2, gw, 120);
-        ctx.beginPath(); ctx.arc(GAME_W/2, 118, 5, 0, Math.PI*2); ctx.fillStyle="#333"; ctx.fill();
-        // 下ゴールエリア
-        ctx.strokeRect((GAME_W-gw)/2, GAME_H-118, gw, 120);
-        
-        // ネオン装飾ライン
-        ctx.shadowBlur = 10; ctx.shadowColor = '#00d2ff'; ctx.strokeStyle = 'rgba(0, 210, 255, 0.2)';
+        // ネオン装飾
+        ctx.shadowBlur = 15; ctx.shadowColor = '#00d2ff'; ctx.strokeStyle = 'rgba(0, 210, 255, 0.15)';
+        ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(GAME_W/2, GAME_H/2, 90, 0, Math.PI*2); ctx.stroke();
         ctx.shadowBlur = 0;
 
-        // ゴール穴
+        // ゴールエリア
+        const gw = GAME_W * 0.42;
         ctx.fillStyle = '#000';
-        ctx.shadowBlur = 20; ctx.shadowColor = 'rgba(0,0,0,1)';
+        ctx.shadowBlur = 20; ctx.shadowColor = 'rgba(0,0,0,0.8)';
         ctx.fillRect((GAME_W-gw)/2, -20, gw, 40);
         ctx.fillRect((GAME_W-gw)/2, GAME_H-20, gw, 40);
         ctx.shadowBlur = 0;
 
-        // オブジェクト描画
-        drawRealisticMallet(p1.x, p1.y, PADDLE_R, '#00d2ff');
-        drawRealisticMallet(p2.x, p2.y, PADDLE_R, '#ff4757');
-        drawRealisticPuck(puck.x, puck.y, PUCK_R);
+        // アイテム描画
+        drawMallet(p1.x, p1.y, '#00d2ff');
+        drawMallet(p2.x, p2.y, '#ff4757');
+        drawPuck(puck.x, puck.y);
     }
 
-    function drawRealisticMallet(x, y, r, colorHex) {
+    function drawMallet(x, y, color) {
         // 影
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.beginPath(); ctx.arc(x, y+10, r, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y+8, PADDLE_R, 0, Math.PI*2); ctx.fill();
 
-        // 本体（底面）
-        const gradBase = ctx.createRadialGradient(x-r/3, y-r/3, r/4, x, y, r);
-        gradBase.addColorStop(0, colorHex);
-        gradBase.addColorStop(1, shadeColor(colorHex, -40)); // 暗く
-        ctx.fillStyle = gradBase;
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+        // 本体（グラデーション）
+        const grad = ctx.createRadialGradient(x-15, y-15, 5, x, y, PADDLE_R);
+        grad.addColorStop(0, color);
+        grad.addColorStop(1, shadeColor(color, -40));
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(x, y, PADDLE_R, 0, Math.PI*2); ctx.fill();
+
+        // 持ち手
+        const hr = PADDLE_R * 0.5;
+        const hGrad = ctx.createRadialGradient(x-5, y-5, 2, x, y, hr);
+        hGrad.addColorStop(0, '#555');
+        hGrad.addColorStop(1, '#222');
+        ctx.fillStyle = hGrad;
+        ctx.beginPath(); ctx.arc(x, y, hr, 0, Math.PI*2); ctx.fill();
         
-        // 縁のハイライト
-        ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.beginPath(); ctx.arc(x, y, r-2, 0, Math.PI*2); ctx.stroke();
-
-        // 持ち手（ハンドル）部分
-        const handleR = r * 0.6;
-        const gradHandle = ctx.createRadialGradient(x-handleR/3, y-handleR/3, 5, x, y, handleR);
-        gradHandle.addColorStop(0, shadeColor(colorHex, 20)); // 明るく
-        gradHandle.addColorStop(1, shadeColor(colorHex, -60)); // かなり暗く
-        
-        ctx.fillStyle = gradHandle;
-        ctx.beginPath(); ctx.arc(x, y, handleR, 0, Math.PI*2); ctx.fill();
-
-        // ハンドルのハイライト
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
-        ctx.beginPath(); ctx.arc(x, y, handleR*0.8, 0, Math.PI*2); ctx.fill();
+        // ハイライトリング
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, PADDLE_R-2, 0, Math.PI*2); ctx.stroke();
     }
 
-    function drawRealisticPuck(x, y, r) {
+    function drawPuck(x, y) {
         // 影
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.beginPath(); ctx.arc(x, y+6, r, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y+5, PUCK_R, 0, Math.PI*2); ctx.fill();
 
-        // 本体
-        const grad = ctx.createRadialGradient(x-r/3, y-r/3, r/10, x, y, r);
+        // パック本体
+        const grad = ctx.createRadialGradient(x-10, y-10, 5, x, y, PUCK_R);
         grad.addColorStop(0, '#fff');
-        grad.addColorStop(0.8, '#ccc');
-        grad.addColorStop(1, '#999');
-        
+        grad.addColorStop(1, '#bbb');
         ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
-
-        // 溝デザイン
-        ctx.strokeStyle = '#888'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(x, y, r*0.7, 0, Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, PUCK_R, 0, Math.PI*2); ctx.fill();
+        
+        // 模様
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, PUCK_R * 0.7, 0, Math.PI*2); ctx.stroke();
     }
 
-    // 色を暗く/明るくするヘルパー
+    // 色変換ヘルパー
     function shadeColor(color, percent) {
-        var R = parseInt(color.substring(1,3),16);
-        var G = parseInt(color.substring(3,5),16);
-        var B = parseInt(color.substring(5,7),16);
-
+        let R = parseInt(color.substring(1,3),16);
+        let G = parseInt(color.substring(3,5),16);
+        let B = parseInt(color.substring(5,7),16);
         R = parseInt(R * (100 + percent) / 100);
         G = parseInt(G * (100 + percent) / 100);
         B = parseInt(B * (100 + percent) / 100);
-
-        R = (R<255)?R:255;  
-        G = (G<255)?G:255;  
-        B = (B<255)?B:255;  
-
-        var RR = ((R.toString(16).length==1)?"0"+R.toString(16):R.toString(16));
-        var GG = ((G.toString(16).length==1)?"0"+G.toString(16):G.toString(16));
-        var BB = ((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16));
-
+        R = (R<255)?R:255; G = (G<255)?G:255; B = (B<255)?B:255;
+        let RR = ((R.toString(16).length==1)?"0"+R.toString(16):R.toString(16));
+        let GG = ((G.toString(16).length==1)?"0"+G.toString(16):G.toString(16));
+        let BB = ((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16));
         return "#"+RR+GG+BB;
-    }
-
-    function loop() { 
-        update(); 
-        draw(); 
-        if(!isGameOver || isPaused) requestAnimationFrame(loop); 
-        // GameOver時はループを止めても良いが、描画維持のため続けるか、フラグで制御
-        // 今回はリプレイや残像のため回し続けるがUpdateは止める
     }
 </script>
 </body>
